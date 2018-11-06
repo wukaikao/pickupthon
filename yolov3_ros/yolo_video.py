@@ -10,6 +10,7 @@ from timeit import default_timer as timer
 import numpy as np
 from yolov3_ros.msg import ROI
 from yolov3_ros.msg import ROI_array
+from yolov3_ros.msg import Suck_point
 
 import threading
 import time
@@ -36,6 +37,31 @@ def detect_img(yolo):
             r_image.show()
     yolo.close_session()
 
+def estimation_suck_point(data):
+    msg = Suck_point()
+    if data.class_name == "metal":
+        center_x = (data.x_min + data.x_Max)/2
+        center_y = (data.y_min + data.y_Max)/2
+        width = data.x_Max-data.x_min
+        height = data.y_Max-data.y_min
+        delta = width - height
+        if delta < -10:
+            msg.Ax = center_x
+            msg.Bx = center_x
+            msg.Ay = center_y + (height/4)
+            msg.By = center_y - (height/4)
+        elif delta > 10:
+            msg.Ax = center_x + (width/4)            
+            msg.Bx = center_x - (width/4)
+            msg.Ay = center_y
+            msg.By = center_y
+        else:
+            msg.Ax = center_x - (width/4)
+            msg.Bx = center_x - (width/4)
+            msg.Ay = center_y + (height/4)
+            msg.By = center_y + (height/4)
+        suckpoint_pub.publish(msg)
+    return msg
 
 def clone_detect_video(yolo, video_path, output_path=""):
     global image_flag
@@ -73,7 +99,7 @@ def clone_detect_video(yolo, video_path, output_path=""):
                 print("x_Max type = "      + str(ROI_recive[3]))
                 print("y_min type = "      + str(ROI_recive[4]))
                 print("y_Max type = "      + str(ROI_recive[5]))
-
+                
                 ROI_msg.class_name = str(ROI_recive[0])
                 ROI_msg.score      = float(ROI_recive[1])
                 ROI_msg.x_min      = int(ROI_recive[2])
@@ -81,6 +107,7 @@ def clone_detect_video(yolo, video_path, output_path=""):
                 ROI_msg.y_min      = int(ROI_recive[4])
                 ROI_msg.y_Max      = int(ROI_recive[5])
                 roi_pub.publish(ROI_msg)
+                suck_msg = estimation_suck_point(ROI_msg)
             else:
                 print("no object now")
             result = np.asarray(image)
@@ -95,6 +122,8 @@ def clone_detect_video(yolo, video_path, output_path=""):
                 curr_fps = 0
             cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale=0.50, color=(255, 0, 0), thickness=2)
+            cv2.circle(result, (suck_msg.Ax,suck_msg.Ay), 10, 195)
+            cv2.circle(result, (suck_msg.Bx,suck_msg.By), 10, 60)
             cv2.namedWindow("result", cv2.WINDOW_NORMAL)
             cv2.imshow("result", result)
             if isOutput:
@@ -117,6 +146,7 @@ def callback(data):
 FLAGS = None
 rospy.init_node('image_converter', anonymous=True)
 roi_pub = rospy.Publisher("/object/ROI",ROI,queue_size=10)
+suckpoint_pub = rospy.Publisher("/object/suckpoint",Suck_point,queue_size=10)
 
 ros_sub = rospy.Subscriber("/camera/rgb/image_raw",Image_ros,callback)
 

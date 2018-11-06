@@ -54,6 +54,7 @@ find_package(OpenCV)
   FILES
   ROI.msg
   ROI_array.msg
+  Suck_point.msg
  )
 
 ## Generate services in the 'srv' folder
