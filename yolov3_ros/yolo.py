@@ -23,7 +23,7 @@ rospack=rospkg.RosPack()
 os.chdir(rospack.get_path('yolov3_ros'))
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/yolo.h5',
+        "model_path": 'model_data/yolo2.h5',
         "anchors_path": 'model_data/yolo_anchors.txt',
         "classes_path": 'model_data/task_classes.txt',
         "score" : 0.3,
