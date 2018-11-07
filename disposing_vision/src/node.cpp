@@ -19,54 +19,12 @@ float x_coordinate_Max,y_coordinate_Max,z_coordinate_Max;
 disposing_vision::coordinate_normal object_normal;
 geometry_msgs::PoseStamped object_pose;
 
+//==========================Function for tools============================
 disposing_vision::coordinate_normal average_normal(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud
                                                   ,pcl::PointCloud<pcl::PointNormal>::Ptr input_normal){
 
-  disposing_vision::coordinate_normal average_normal;
-  average_normal.x=0;
-  average_normal.y=0;
-  average_normal.z=0;
-  average_normal.normal_x = 0.0;
-  average_normal.normal_y = 0.0;
-  average_normal.normal_z = 0.0;
-  int count = 0;
-
-  for (size_t currentPoint = 0; currentPoint < input_normal->points.size(); currentPoint++)
-	{
-    if(!(isnan(input_normal->points[currentPoint].normal[0])||
-         isnan(input_normal->points[currentPoint].normal[1])||
-         isnan(input_normal->points[currentPoint].normal[2])))
-    {
-      average_normal.x = average_normal.x + input_cloud->points[currentPoint].x;
-      average_normal.y = average_normal.y + input_cloud->points[currentPoint].y;
-      average_normal.z = average_normal.z + input_cloud->points[currentPoint].z;
-      average_normal.normal_x = average_normal.normal_x + input_normal->points[currentPoint].normal[0];
-      average_normal.normal_y = average_normal.normal_y + input_normal->points[currentPoint].normal[1];
-      average_normal.normal_z = average_normal.normal_z + input_normal->points[currentPoint].normal[2];
-		  
-      count++;
-      // std::cout << "Point:" << std::endl;
-      // cout << currentPoint << std::endl;
-		  // std::cout << "\town:" << average_normal.x << " "
-		  		                  // << average_normal.y << " "
-		  		                  // << average_normal.z << std::endl;
-
-		  // std::cout << "\tNormal:" << input_cloud->points[currentPoint].x << " "
-		  // 		                      << input_cloud->points[currentPoint].y << " "
-		  // 		                      << input_cloud->points[currentPoint].z << std::endl;
-    }
-  }
-  // printf("================\ncloud_size = %d \n",count);
-
-  average_normal.x = average_normal.x/count;
-  average_normal.y = average_normal.y/count;
-  average_normal.z = average_normal.z/count;
-  average_normal.normal_x = average_normal.normal_x/count;
-  average_normal.normal_y = average_normal.normal_y/count;
-  average_normal.normal_z = average_normal.normal_z/count;
-  
-  return average_normal;
 }
+
 //==========================call back function============================
 void 
 cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
@@ -78,19 +36,19 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-  //cylinder_segmentation
-  // Pcl_function.cylinder_segmentation(cloud,object_cloud,plane_cloud);
-
-  //passthrough
+  //Passthrough
   Pcl_function.passthrough(cloud,object_cloud,"x",x_coordinate_min,x_coordinate_Max);
   Pcl_function.passthrough(cloud,object_cloud,"y",y_coordinate_min,y_coordinate_Max);
   Pcl_function.passthrough(cloud,object_cloud,"z",z_coordinate_min,z_coordinate_Max);
 
+  //Downsampling
   Pcl_function.downsampling(object_cloud,object_cloud,0.01);
 
+  //Calculate Normal
   pcl::PointCloud<pcl::PointNormal>::Ptr cloud_normal (new pcl::PointCloud<pcl::PointNormal>);
   Pcl_function.calculate_normal(object_cloud,cloud_normal);
 
+  //Object estimating
   object_normal = average_normal(object_cloud,cloud_normal);
 
   pub_normal.publish(object_normal);
@@ -98,6 +56,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
   // pcl::PCDWriter writer;
   // writer.write ("object.pcd", *object_cloud, false);
   // writer.write ("plane.pcd", *plane_cloud, false);
+  //<<<Save file for debug>>>
 
   // Convert to ROS data type
   sensor_msgs::PointCloud2 ros_object_cloud;
@@ -111,7 +70,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
   
   geometry_msgs::Quaternion msg;
 
-  // extracting surface normals
+  // Extracting surface normals (Transform normal coordinate to 4 vector version)
   tf::Vector3 axis_vector(object_normal.normal_x, object_normal.normal_y, object_normal.normal_z);
   tf::Vector3 up_vector(1.0, 0.0, 0.0);
 
@@ -137,6 +96,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
   pub_pose.publish (object_pose);
 }
 
+//==============================Set coordinate_limit_min============================================
 void set_coordinate_limit_min(const geometry_msgs::Point& input)
 {
   x_coordinate_min = input.x;
