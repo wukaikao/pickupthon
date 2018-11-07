@@ -87,6 +87,7 @@ def clone_detect_video(yolo, video_path, output_path=""):
     prev_time = timer()
     while not rospy.is_shutdown():
         if image_flag:
+            suck_msg = None
             # return_value, frame = vid.read()
             # image = Image.fromarray(frame)
             image = Image.fromarray(cv_image)
@@ -122,14 +123,16 @@ def clone_detect_video(yolo, video_path, output_path=""):
                 curr_fps = 0
             cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale=0.50, color=(255, 0, 0), thickness=2)
-            cv2.circle(result, (suck_msg.Ax,suck_msg.Ay), 10, 195)
-            cv2.circle(result, (suck_msg.Bx,suck_msg.By), 10, 60)
-            cv2.namedWindow("result", cv2.WINDOW_NORMAL)
-            cv2.imshow("result", result)
-            if isOutput:
-                out.write(result)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            if suck_msg!=None:
+                cv2.circle(result, (suck_msg.Ax,suck_msg.Ay), 10, 195)
+                cv2.circle(result, (suck_msg.Bx,suck_msg.By), 10, 60)
+            resultimg_pub.publish(bridge.cv2_to_imgmsg(result, "bgr8"))
+            # cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+            # cv2.imshow("result", result)
+            # if isOutput:
+            #     out.write(result)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
         image_flag = False
 def callback(data):
     global cv_image
@@ -147,9 +150,10 @@ FLAGS = None
 rospy.init_node('image_converter', anonymous=True)
 roi_pub = rospy.Publisher("/object/ROI",ROI,queue_size=10)
 suckpoint_pub = rospy.Publisher("/object/suckpoint",Suck_point,queue_size=10)
+resultimg_pub = rospy.Publisher("/object/result_img",Image_ros,queue_size=10)
 
-ros_sub = rospy.Subscriber("/camera/rgb/image_raw",Image_ros,callback)
-
+# ros_sub = rospy.Subscriber("/camera/rgb/image_raw",Image_ros,callback)
+ros_sub = rospy.Subscriber("/usb_cam/image_raw",Image_ros,callback)
 if __name__ == '__main__':
 
     # class YOLO defines the default value, so suppress any default here
