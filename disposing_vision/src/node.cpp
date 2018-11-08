@@ -25,6 +25,32 @@ disposing_vision::coordinate_normal average_normal(pcl::PointCloud<pcl::PointXYZ
 
 }
 
+geometry_msgs::PoseStamped transform_pose_arrow(disposing_vision::coordinate_normal object){
+  // Extracting surface normals (Transform normal coordinate to 4 vector version)
+  geometry_msgs::Quaternion msg;
+  geometry_msgs::PoseStamped arrow;
+  tf::Vector3 axis_vector(object.normal_x, object.normal_y, object.normal_z);
+  tf::Vector3 up_vector(1.0, 0.0, 0.0);
+
+  tf::Vector3 right_vector = axis_vector.cross(up_vector);
+  right_vector.normalized();
+  tf::Quaternion q(right_vector, -1.0*acos(axis_vector.dot(up_vector)));
+  q.normalize();
+  tf::quaternionTFToMsg(q, msg);
+  
+  // object_pose.header.frame_id = "base_link";
+  arrow.header.frame_id = "camera_depth_optical_frame";
+  arrow.header.stamp = ros::Time::now();;
+  arrow.header.seq = 1;
+
+  arrow.pose.orientation = msg;
+  arrow.pose.position.x = object.x;
+  arrow.pose.position.y = object.y;
+  arrow.pose.position.z = object.z;
+  
+  return arrow;
+
+}
 //==========================call back function============================
 void 
 cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
@@ -63,28 +89,10 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
   pcl::toROSMsg(*object_cloud, ros_object_cloud);
   pub_procced.publish(ros_object_cloud);
 
-  // object_pose.header.frame_id = "base_link";
-  object_pose.header.frame_id = "camera_depth_optical_frame";
-  object_pose.header.stamp = ros::Time::now();;
-  object_pose.header.seq = 1;
+  //Transform coordinate_normal to Quaternion arrow
+  object_pose = transform_pose_arrow(object_normal);
   
-  geometry_msgs::Quaternion msg;
-
-  // Extracting surface normals (Transform normal coordinate to 4 vector version)
-  tf::Vector3 axis_vector(object_normal.normal_x, object_normal.normal_y, object_normal.normal_z);
-  tf::Vector3 up_vector(1.0, 0.0, 0.0);
-
-  tf::Vector3 right_vector = axis_vector.cross(up_vector);
-  right_vector.normalized();
-  tf::Quaternion q(right_vector, -1.0*acos(axis_vector.dot(up_vector)));
-  q.normalize();
-  tf::quaternionTFToMsg(q, msg);
-
-  object_pose.pose.orientation = msg;
-  object_pose.pose.position.x = object_normal.x;
-  object_pose.pose.position.y = object_normal.y;
-  object_pose.pose.position.z = object_normal.z;
-    
+  //<<Print the data for object_pose>>
   std::cout << "\tTotal Point:" << object_pose.pose.position.x << " "
 			                          << object_pose.pose.position.y << " "
 			                          << object_pose.pose.position.z << std::endl;
@@ -92,7 +100,7 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
 			                           << object_pose.pose.orientation.y << " "
 			                           << object_pose.pose.orientation.z << " "
 			                           << object_pose.pose.orientation.w << std::endl;
-  
+  //<<Print the data for object_pose>>
   pub_pose.publish (object_pose);
 }
 
